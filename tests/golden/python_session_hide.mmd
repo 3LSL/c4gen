@@ -1,0 +1,13 @@
+C4Component
+    title Component diagram for app/session
+
+    Boundary(b_app_session, "app/session", "module") {
+        Component(f_app_session___init___py, "__init__.py", "Python")
+        Component(f_app_session_service_py, "service.py", "Python")
+        Component(f_app_session_tokens_py, "tokens.py", "Python")
+    }
+
+    System_Ext(x_web_client, "web-client")
+
+    Rel(f_app_session_service_py, f_app_session_tokens_py, "Signs and verifies session tokens")
+    Rel(x_web_client, f_app_session_service_py, "Submits login and logout requests")

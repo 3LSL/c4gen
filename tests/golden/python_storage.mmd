@@ -1,0 +1,18 @@
+C4Component
+    title Component diagram for app/storage
+
+    Boundary(b_app_storage, "app/storage", "module") {
+        Component(f_app_storage___init___py, "__init__.py", "Python")
+        Component(f_app_storage_cache_py, "cache.py", "Python")
+        Component(d_app_storage_drivers, "drivers/", "Python")
+        Component(f_app_storage_repo_py, "repo.py", "Python")
+    }
+
+    Component_Ext(d_app_session, "app/session/", "Python")
+
+    System_Ext(x_sessions_db, "sessions-db")
+
+    Rel(f_app_storage_repo_py, d_app_storage_drivers, "Runs statements against the session database")
+    Rel(d_app_storage_drivers, x_sessions_db, "Reads and writes session rows")
+    Rel(d_app_session, f_app_storage_cache_py, "")
+    Rel(d_app_session, f_app_storage_repo_py, "Stores and retrieves session records; Loads signing keys")

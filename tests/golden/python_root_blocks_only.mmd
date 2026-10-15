@@ -1,0 +1,21 @@
+C4Component
+    title Component diagram for the repository root
+
+    Boundary(b_root, "(repository root)", "module") {
+        Boundary(b_app, "app", "module") {
+            Component(f_app___init___py, "__init__.py", "Python")
+            Component(f_app_main_py, "main.py", "Python")
+            Component(d_app_session, "session/", "Python")
+            Component(d_app_storage, "storage/", "Python")
+        }
+    }
+
+    System_Ext(x_operator, "operator")
+    System_Ext(x_sessions_db, "sessions-db")
+    System_Ext(x_web_client, "web-client")
+
+    Rel(f_app_main_py, d_app_session, "Starts the session service")
+    Rel(d_app_session, d_app_storage, "Stores and retrieves session records; Loads signing keys")
+    Rel(d_app_storage, x_sessions_db, "Reads and writes session rows")
+    Rel(x_operator, f_app_main_py, "Starts the application from a terminal")
+    Rel(x_web_client, d_app_session, "Submits login and logout requests")

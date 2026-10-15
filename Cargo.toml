@@ -1,0 +1,19 @@
+[package]
+name = "c4gen"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic C4 component diagrams in Mermaid, generated from source files and their Relationships comments"
+readme = "README.md"
+keywords = ["c4", "mermaid", "architecture", "diagram"]
+categories = ["development-tools", "visualization"]
+
+[lib]
+name = "c4gen"
+path = "src/lib.rs"
+
+[[bin]]
+name = "c4gen"
+path = "src/main.rs"
+doc = false
+
+[dependencies]

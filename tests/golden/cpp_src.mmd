@@ -1,0 +1,19 @@
+C4Component
+    title Component diagram for src
+
+    Boundary(b_src, "src", "module") {
+        Component(f_src_all_h, "all.h", "C/C++")
+        Component(f_src_main_cpp, "main.cpp", "C++")
+        Component(f_src_repo_cpp, "repo.cpp", "C++")
+        Component(f_src_session_h, "session.h", "C++")
+        Component(f_src_token_h, "token.h", "C/C++")
+    }
+
+    System_Ext(x_operator, "operator")
+    System_Ext(x_sessions_db, "sessions-db")
+
+    Rel(f_src_main_cpp, f_src_session_h, "Starts a login session")
+    Rel(f_src_repo_cpp, x_sessions_db, "Reads and writes session rows")
+    Rel(f_src_session_h, f_src_repo_cpp, "Stores and retrieves session records")
+    Rel(f_src_session_h, f_src_token_h, "")
+    Rel(x_operator, f_src_main_cpp, "Starts the application from a terminal")

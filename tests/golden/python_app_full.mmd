@@ -1,0 +1,34 @@
+C4Component
+    title Component diagram for app
+
+    Boundary(b_app, "app", "module") {
+        Component(f_app___init___py, "__init__.py", "Python")
+        Component(f_app_main_py, "main.py", "Python")
+        Boundary(b_app_session, "session", "module") {
+            Component(f_app_session___init___py, "__init__.py", "Python")
+            Component(f_app_session_service_py, "service.py", "Python")
+            Component(f_app_session_tokens_py, "tokens.py", "Python")
+        }
+        Boundary(b_app_storage, "storage", "module") {
+            Component(f_app_storage___init___py, "__init__.py", "Python")
+            Component(f_app_storage_cache_py, "cache.py", "Python")
+            Component(f_app_storage_repo_py, "repo.py", "Python")
+            Boundary(b_app_storage_drivers, "drivers", "module") {
+                Component(f_app_storage_drivers_sqlite_py, "sqlite.py", "Python")
+            }
+        }
+    }
+
+    System_Ext(x_operator, "operator")
+    System_Ext(x_sessions_db, "sessions-db")
+    System_Ext(x_web_client, "web-client")
+
+    Rel(f_app_main_py, f_app_session_service_py, "Starts the session service")
+    Rel(f_app_session_service_py, f_app_session_tokens_py, "Signs and verifies session tokens")
+    Rel(f_app_session_service_py, f_app_storage_cache_py, "")
+    Rel(f_app_session_service_py, f_app_storage_repo_py, "Stores and retrieves session records")
+    Rel(f_app_session_tokens_py, f_app_storage_repo_py, "Loads signing keys")
+    Rel(f_app_storage_drivers_sqlite_py, x_sessions_db, "Reads and writes session rows")
+    Rel(f_app_storage_repo_py, f_app_storage_drivers_sqlite_py, "Runs statements against the session database")
+    Rel(x_operator, f_app_main_py, "Starts the application from a terminal")
+    Rel(x_web_client, f_app_session_service_py, "Submits login and logout requests")
