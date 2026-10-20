@@ -1,0 +1,24 @@
+C4Component
+    title Component diagram for src/session
+
+    Boundary(b_src_session, "src/session", "module") {
+        Component(f_src_session_index_ts, "index.ts", "TypeScript")
+        Component(f_src_session_service_ts, "service.ts", "TypeScript")
+        Component(f_src_session_tokens_ts, "tokens.ts", "TypeScript")
+        Component(f_src_session_types_ts, "types.ts", "TypeScript")
+    }
+
+    Component_Ext(f_src_main_ts, "src/main.ts", "TypeScript")
+    Component_Ext(d_src_storage, "src/storage/", "TypeScript")
+    Component_Ext(d_src_ui, "src/ui/", "TypeScript")
+
+    System_Ext(x_web_client, "web-client")
+
+    Rel(f_src_session_service_ts, f_src_session_tokens_ts, "Signs and verifies session tokens")
+    Rel(f_src_session_service_ts, f_src_session_types_ts, "Describes returned session records")
+    Rel(f_src_session_service_ts, d_src_storage, "Stores and retrieves session records")
+    Rel(f_src_session_tokens_ts, d_src_storage, "Loads signing keys")
+    Rel(f_src_main_ts, f_src_session_service_ts, "Starts the session service")
+    Rel(d_src_storage, f_src_session_types_ts, "Describes stored session records")
+    Rel(d_src_ui, f_src_session_service_ts, "Logs users in from the sign-in form")
+    Rel(x_web_client, f_src_session_service_ts, "Submits login and logout requests")

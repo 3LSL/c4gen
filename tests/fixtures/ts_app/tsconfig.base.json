@@ -1,0 +1,10 @@
+// Shared compiler settings.
+{
+  "compilerOptions": {
+    "strict": true,
+    /* Imports that start with `@/` are resolved from `src`. */
+    "paths": {
+      "@/*": ["./src/*"],
+    },
+  },
+}
