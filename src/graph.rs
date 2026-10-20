@@ -153,6 +153,7 @@ fn syntax_of(language: Language) -> &'static CommentSyntax {
         Language::Rust => &block::SLASHES,
         Language::Python => &block::HASH,
         Language::C => &block::C_FAMILY,
+        Language::TypeScript => &block::SLASHES,
     }
 }
 

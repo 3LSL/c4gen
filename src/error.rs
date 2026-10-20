@@ -63,7 +63,7 @@ impl fmt::Display for Error {
             ),
             Error::NoComponents { module } => {
                 let shown = if module.is_empty() { "the repository root" } else { module.as_str() };
-                write!(f, "{shown} contains no Rust, Python, C or C++ source files to draw; test code and excluded files do not count")
+                write!(f, "{shown} contains no Rust, Python, C, C++ or TypeScript source files to draw; test code and excluded files do not count")
             }
             Error::NotAComponent { path } => write!(
                 f,

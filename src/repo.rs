@@ -23,6 +23,8 @@ pub(crate) enum Language {
     Python,
     /// C and C++, which share comment syntax and `#include`.
     C,
+    /// TypeScript, including TSX; declaration files (`.d.ts`) are not read.
+    TypeScript,
 }
 
 /// Whether a file is drawn.
@@ -63,6 +65,8 @@ pub(crate) struct Location {
 }
 
 const TEST_DIRS: &[&str] = &["tests", "test", "benches", "__tests__"];
+/// Directories of hand-written test doubles in TypeScript projects.
+const TS_TEST_DIRS: &[&str] = &["__mocks__"];
 const ROOT_MARKERS: &[&str] = &[".git", ".hg", ".svn"];
 const C_HEADER_EXTS: &[&str] = &["h", "hh", "hpp", "hxx", "h++"];
 const CPP_ONLY_EXTS: &[&str] = &[
@@ -124,7 +128,15 @@ impl Repo {
         let excludes = Excludes::new(exclude);
         let mut found = Vec::new();
         let mut manifest_paths = Vec::new();
-        walk(root, "", &excludes, &mut found, &mut manifest_paths)?;
+        let mut package_paths = Vec::new();
+        walk(
+            root,
+            "",
+            &excludes,
+            &mut found,
+            &mut manifest_paths,
+            &mut package_paths,
+        )?;
         found.sort();
         manifest_paths.sort();
 
@@ -134,12 +146,13 @@ impl Repo {
             manifests.push((path, text));
         }
         let manifest_dirs: BTreeSet<&str> = manifests.iter().map(|(p, _)| dir_of(p)).collect();
+        let package_dirs: BTreeSet<&str> = package_paths.iter().map(|p| dir_of(p)).collect();
 
         let mut files = Vec::with_capacity(found.len());
         let mut by_path = BTreeMap::new();
         for (path, language) in found {
             let text = read(root, &path)?;
-            let role = role_of(&path, language, &manifest_dirs);
+            let role = role_of(&path, language, &manifest_dirs, &package_dirs);
             by_path.insert(path.clone(), files.len());
             files.push(SourceFile {
                 path,
@@ -220,6 +233,7 @@ fn walk(
     excludes: &Excludes,
     found: &mut Vec<(String, Language)>,
     manifests: &mut Vec<String>,
+    packages: &mut Vec<String>,
 ) -> Result<(), Error> {
     let abs = if dir.is_empty() {
         root.to_path_buf()
@@ -255,9 +269,11 @@ fn walk(
             continue;
         }
         if is_dir {
-            walk(root, &path, excludes, found, manifests)?;
+            walk(root, &path, excludes, found, manifests, packages)?;
         } else if name == "Cargo.toml" {
             manifests.push(path);
+        } else if name == "package.json" {
+            packages.push(path);
         } else if let Some(language) = language_of(&name) {
             found.push((path, language));
         }
@@ -283,11 +299,26 @@ fn language_of(name: &str) -> Option<Language> {
         "py" => Some(Language::Python),
         "c" | "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp" | "tpp"
         | "inl" | "tcc" => Some(Language::C),
+        "ts" | "tsx" | "mts" | "cts" if !is_ts_declaration(name) => Some(Language::TypeScript),
         _ => None,
     }
 }
 
-fn role_of(path: &str, language: Language, manifest_dirs: &BTreeSet<&str>) -> Role {
+/// Whether a TypeScript file name is a declaration file, such as
+/// `types.d.ts` or `styles.d.css.ts`, which describes code without being any.
+fn is_ts_declaration(name: &str) -> bool {
+    let (stem, ext) = split_ext(name);
+    let stem = stem.to_ascii_lowercase();
+    matches!(ext.to_ascii_lowercase().as_str(), "ts" | "mts" | "cts")
+        && (stem.ends_with(".d") || stem.contains(".d."))
+}
+
+fn role_of(
+    path: &str,
+    language: Language,
+    manifest_dirs: &BTreeSet<&str>,
+    package_dirs: &BTreeSet<&str>,
+) -> Role {
     let dir = dir_of(path);
     if dir.split('/').any(|segment| TEST_DIRS.contains(&segment)) {
         return Role::Test;
@@ -315,6 +346,19 @@ fn role_of(path: &str, language: Language, manifest_dirs: &BTreeSet<&str>) -> Ro
         }
         Language::C => {
             if test_name || stem.ends_with("_unittest") {
+                return Role::Test;
+            }
+        }
+        Language::TypeScript => {
+            // Tool settings such as `vite.config.ts` sit beside the
+            // `package.json` of the package they configure.
+            if stem.ends_with(".config") && package_dirs.contains(dir) {
+                return Role::Build;
+            }
+            let test_dir = dir
+                .split('/')
+                .any(|segment| TS_TEST_DIRS.contains(&segment));
+            if test_dir || test_name || stem.ends_with(".test") || stem.ends_with(".spec") {
                 return Role::Test;
             }
         }
@@ -346,6 +390,7 @@ pub(crate) fn technology(language: Language, paths: &[&str]) -> &'static str {
                 "C/C++"
             }
         }
+        Language::TypeScript => "TypeScript",
     }
 }
 
@@ -358,14 +403,23 @@ mod tests {
         assert_eq!(language_of("a.rs"), Some(Language::Rust));
         assert_eq!(language_of("a.py"), Some(Language::Python));
         assert_eq!(language_of("a.HPP"), Some(Language::C));
-        assert_eq!(language_of("a.ts"), None);
+        assert_eq!(language_of("a.ts"), Some(Language::TypeScript));
+        assert_eq!(language_of("a.tsx"), Some(Language::TypeScript));
+        assert_eq!(language_of("a.mts"), Some(Language::TypeScript));
+        assert_eq!(language_of("a.cts"), Some(Language::TypeScript));
+        assert_eq!(language_of("a.service.ts"), Some(Language::TypeScript));
+        assert_eq!(language_of("a.d.ts"), None);
+        assert_eq!(language_of("a.D.MTS"), None);
+        assert_eq!(language_of("a.d.css.ts"), None);
+        assert_eq!(language_of("a.js"), None);
         assert_eq!(language_of("Makefile"), None);
     }
 
     #[test]
     fn classifies_roles() {
         let manifests: BTreeSet<&str> = ["", "tool"].into_iter().collect();
-        let role = |path, language| role_of(path, language, &manifests);
+        let packages: BTreeSet<&str> = ["", "web"].into_iter().collect();
+        let role = |path, language| role_of(path, language, &manifests, &packages);
         assert_eq!(role("src/a.rs", Language::Rust), Role::Component);
         assert_eq!(role("tests/a.rs", Language::Rust), Role::Test);
         assert_eq!(role("src/a_test.rs", Language::Rust), Role::Test);
@@ -377,6 +431,21 @@ mod tests {
         assert_eq!(role("setup.py", Language::Python), Role::Build);
         assert_eq!(role("src/repo_unittest.cc", Language::C), Role::Test);
         assert_eq!(role("src/contest.cc", Language::C), Role::Component);
+        let ts = Language::TypeScript;
+        assert_eq!(role("src/app.ts", ts), Role::Component);
+        assert_eq!(role("src/app.test.ts", ts), Role::Test);
+        assert_eq!(role("src/App.spec.tsx", ts), Role::Test);
+        assert_eq!(role("src/app_test.ts", ts), Role::Test);
+        assert_eq!(role("src/__tests__/app.ts", ts), Role::Test);
+        assert_eq!(role("src/__mocks__/repo.ts", ts), Role::Test);
+        assert_eq!(
+            role("src/__mocks__/repo.py", Language::Python),
+            Role::Component
+        );
+        assert_eq!(role("vite.config.ts", ts), Role::Build);
+        assert_eq!(role("web/vitest.config.mts", ts), Role::Build);
+        assert_eq!(role("src/app.config.ts", ts), Role::Component);
+        assert_eq!(role("src/latest.ts", ts), Role::Component);
     }
 
     #[test]
@@ -386,5 +455,6 @@ mod tests {
         assert_eq!(technology(Language::C, &["a.h"]), "C/C++");
         assert!(is_c_header("include/a.hpp"));
         assert!(!is_c_header("src/a.cpp"));
+        assert_eq!(technology(Language::TypeScript, &["a.tsx"]), "TypeScript");
     }
 }
