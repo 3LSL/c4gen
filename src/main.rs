@@ -32,7 +32,8 @@ Options:
       --no-default-excludes Do not skip the directories that are skipped by
                             default (target, node_modules, vendor, build, ...)
       --search-path <DIR>   Directory, relative to the root, searched first for
-                            C/C++ includes and Python imports; may be repeated
+                            C/C++ includes and Python and TypeScript imports;
+                            may be repeated
       --no-code-analysis    Build the diagram from Relationships blocks alone
       --title <TEXT>        Diagram title
   -o, --output <FILE>       Write the diagram to FILE instead of standard output
