@@ -187,6 +187,16 @@ impl Repo {
             OtherFile::Missing
         }
     }
+
+    /// Reads a file that is not one of the scanned source files, such as a
+    /// settings file. Returns `None` when the file is missing, hidden,
+    /// excluded or unreadable.
+    pub(crate) fn read_other(&self, path: &str) -> Option<String> {
+        if self.other_file(path) != OtherFile::Present {
+            return None;
+        }
+        read(&self.root, path).ok()
+    }
 }
 
 /// What a path that is not a scanned source file turns out to be.

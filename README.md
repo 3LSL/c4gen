@@ -259,7 +259,7 @@ C4Component
     Rel(f_src_repo_rs, f_src_paths_rs, "Splits and joins repository paths")
     Rel(f_src_repo_rs, x_source_repository, "Reads the directory tree and source files")
     Rel(d_src_analysis, f_src_paths_rs, "Splits and joins repository paths")
-    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests")
+    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests; Reads TypeScript compiler settings files; Reads TypeScript sources and their paths")
     Rel(x_command_line_user, f_src_main_rs, "Requests a diagram for a module path")
 ```
 

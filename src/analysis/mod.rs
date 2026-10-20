@@ -2,6 +2,7 @@
 // - `src/analysis/cpp.rs`: Detects include dependencies and pairs headers with sources
 // - `src/analysis/python.rs`: Detects import dependencies between Python files
 // - `src/analysis/rust.rs`: Detects module dependencies and finds test modules
+// - `src/analysis/typescript.rs`: Detects import dependencies between TypeScript files
 // - `src/repo.rs`: Reads scanned files and marks test files
 
 //! Detection of dependencies in the code, one analyser per language family.
@@ -14,6 +15,8 @@
 mod cpp;
 mod python;
 mod rust;
+mod tsconfig;
+mod typescript;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -75,6 +78,7 @@ pub(crate) fn run(repo: &mut Repo, search_paths: &[String]) -> Analysis {
     }
     python::analyze(repo, search_paths, &mut deps);
     let pairs = cpp::analyze(repo, search_paths, &mut deps);
+    typescript::analyze(repo, search_paths, &mut deps);
 
     let deps = deps
         .into_iter()
