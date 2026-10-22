@@ -1,0 +1,36 @@
+{
+  "name": "@3lsl/c4gen",
+  "version": "0.0.0",
+  "description": "Deterministic C4 component diagrams in Mermaid, generated from source files and their Relationships comments",
+  "keywords": [
+    "c4",
+    "mermaid",
+    "architecture",
+    "diagram"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3LSL/c4gen.git"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "types": "./index.d.ts",
+  "bin": {
+    "c4gen": "cli.js"
+  },
+  "files": [
+    "cli.js",
+    "index.d.ts",
+    "index.js",
+    "native/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -57,6 +57,25 @@ $ cargo build --release      # binary at target/release/c4gen
 $ cargo test
 ```
 
+## Releases
+
+Each [release](https://github.com/3LSL/c4gen/releases) carries an npm package, `@3lsl/c4gen`, with the `c4gen` binary built for Linux (x64 and arm64, statically linked), macOS (x64 and arm64) and Windows (x64). It is not on the npm registry: a project depends on the tarball of a release.
+
+```json
+"@3lsl/c4gen": "https://github.com/3LSL/c4gen/releases/download/v0.1.0/3lsl-c4gen-0.1.0.tgz"
+```
+
+The package runs no install scripts and has no dependencies. It installs a `c4gen` command, and its module exports `binaryPath()`, the absolute path of the binary for the platform Node runs on:
+
+```js
+import { execFileSync } from 'node:child_process';
+import { binaryPath } from '@3lsl/c4gen';
+
+const diagram = execFileSync(binaryPath(), ['--root', '.', 'src'], { encoding: 'utf8' });
+```
+
+`RELEASING.md` says how to make a release, and how to try an unreleased build in another project.
+
 ## Command line
 
 ```text
