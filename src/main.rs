@@ -1,15 +1,18 @@
 // Relationships:
-// - `external:command-line-user` (inbound): Requests a diagram for a module path
+// - `external:command-line-user` (inbound): Requests the diagram or components of a module
+// - `src/diagram.rs`: Renders the diagram and reads diagnostics and components
+// - `src/error.rs`: Tells modules without components from failures
 // - `src/lib.rs`: Generates the diagram for the requested module
 // - `src/options.rs`: Builds generation settings from command-line arguments
 
 //! Command-line front end for the `c4gen` library.
 
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use c4gen::{generate, Depth, Options, Outside};
+use c4gen::{generate, Depth, ElementKind, Error, Options, Outside};
 
 const USAGE: &str = "\
 Generate a C4 component diagram of a software module, in Mermaid syntax.
@@ -32,9 +35,12 @@ Options:
       --no-default-excludes Do not skip the directories that are skipped by
                             default (target, node_modules, vendor, build, ...)
       --search-path <DIR>   Directory, relative to the root, searched first for
-                            C/C++ includes and Python imports; may be repeated
+                            C/C++ includes and Python and TypeScript imports;
+                            may be repeated
       --no-code-analysis    Build the diagram from Relationships blocks alone
       --title <TEXT>        Diagram title
+      --list-components     Print the path of every component of MODULE instead
+                            of drawing it
   -o, --output <FILE>       Write the diagram to FILE instead of standard output
       --strict              Exit with status 1 if any diagnostic is reported
   -q, --quiet               Do not print diagnostics
@@ -44,6 +50,10 @@ Options:
 The diagram goes to standard output and diagnostics go to standard error.
 Exit status: 0 on success, 1 with --strict when diagnostics were reported,
 2 when no diagram could be generated.
+
+--list-components prints the components that MODULE's diagram would draw with
+every level in full: one path per line, relative to the root. A module with no
+components gives an empty list and exit status 0.
 ";
 
 struct Cli {
@@ -52,6 +62,7 @@ struct Cli {
     output: Option<String>,
     strict: bool,
     quiet: bool,
+    list: bool,
 }
 
 enum Command {
@@ -83,14 +94,12 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         }
     };
 
-    let diagram = generate(&cli.module, &cli.options).map_err(|error| error.to_string())?;
-    let text = diagram.to_mermaid();
-    match &cli.output {
-        Some(path) => {
-            fs::write(path, &text).map_err(|error| format!("cannot write {path}: {error}"))?
-        }
-        None => print!("{text}"),
+    if cli.list {
+        return list_components(&cli);
     }
+
+    let diagram = generate(&cli.module, &cli.options).map_err(|error| error.to_string())?;
+    write_output(&cli, &diagram.to_mermaid())?;
     if !cli.quiet {
         for diagnostic in &diagram.diagnostics {
             eprintln!("{diagnostic}");
@@ -102,6 +111,44 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     Ok(ExitCode::SUCCESS)
 }
 
+/// Prints the path of every component that the module's diagram draws with
+/// every level in full, one per line. A module with nothing to draw has an
+/// empty list; it is not an error.
+fn list_components(cli: &Cli) -> Result<ExitCode, String> {
+    let mut options = cli.options.clone();
+    options.depth = Depth::Unlimited;
+    options.outside = Outside::Hide;
+    // The components do not depend on the analysis, only the arrows do.
+    options.code_analysis = false;
+    let paths: BTreeSet<String> = match generate(&cli.module, &options) {
+        Ok(diagram) => diagram
+            .elements
+            .into_iter()
+            .filter(|element| element.kind == ElementKind::Component)
+            .map(|element| element.path)
+            .collect(),
+        Err(Error::NoComponents { .. } | Error::NotAComponent { .. }) => BTreeSet::new(),
+        Err(error) => return Err(error.to_string()),
+    };
+    let text: String = paths.iter().map(|path| format!("{path}\n")).collect();
+    write_output(cli, &text)?;
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Writes the output to the file given with `--output`, or else to standard
+/// output.
+fn write_output(cli: &Cli, text: &str) -> Result<(), String> {
+    match &cli.output {
+        Some(path) => {
+            fs::write(path, text).map_err(|error| format!("cannot write {path}: {error}"))
+        }
+        None => {
+            print!("{text}");
+            Ok(())
+        }
+    }
+}
+
 fn parse(args: Vec<String>) -> Result<Command, String> {
     let mut options = Options::default();
     let mut excludes = Vec::new();
@@ -110,6 +157,7 @@ fn parse(args: Vec<String>) -> Result<Command, String> {
     let mut output = None;
     let mut strict = false;
     let mut quiet = false;
+    let mut list = false;
 
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
@@ -165,6 +213,7 @@ fn parse(args: Vec<String>) -> Result<Command, String> {
             "-o" | "--output" => output = Some(value(&mut args)?),
             "--strict" => strict = true,
             "-q" | "--quiet" => quiet = true,
+            "--list-components" => list = true,
             flag if flag.starts_with('-') && flag.len() > 1 => {
                 return Err(format!("unknown option `{flag}`; try --help"));
             }
@@ -187,5 +236,6 @@ fn parse(args: Vec<String>) -> Result<Command, String> {
         output,
         strict,
         quiet,
+        list,
     })))
 }

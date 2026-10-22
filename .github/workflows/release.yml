@@ -1,0 +1,142 @@
+# Builds and tests c4gen on every platform the npm package @3lsl/c4gen supports, and packs and
+# checks the package. For a pushed tag v<version>, where <version> is the version in Cargo.toml,
+# it then creates the GitHub release with the package attached. See RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - platform: linux-x64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+          - platform: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+          - platform: darwin-x64
+            os: macos-15
+            target: x86_64-apple-darwin
+          - platform: darwin-arm64
+            os: macos-15
+            target: aarch64-apple-darwin
+          - platform: win32-x64
+            os: windows-2025
+            target: x86_64-pc-windows-msvc
+    env:
+      # Linux binaries link musl statically and Windows ones the C runtime, so that they run
+      # without anything else installed.
+      RUSTFLAGS: ${{ matrix.platform == 'win32-x64' && '-C target-feature=+crt-static' || '' }}
+      BINARY: target/${{ matrix.target }}/release/c4gen${{ matrix.platform == 'win32-x64' && '.exe' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Add the target
+        shell: bash
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Test
+        # The macOS runners are arm64, so the x64 build is not run there.
+        if: matrix.platform != 'darwin-x64'
+        shell: bash
+        run: cargo test --locked --release --target ${{ matrix.target }}
+
+      - name: Build
+        shell: bash
+        run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Check that the binary is static
+        if: startsWith(matrix.platform, 'linux')
+        run: |
+          file "$BINARY"
+          file "$BINARY" | grep -Eq 'statically linked|static-pie linked'
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.platform }}
+          path: ${{ env.BINARY }}
+          if-no-files-found: error
+
+  package:
+    name: Package
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: binaries
+
+      - name: Check the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="$(sed -n 's/^version *= *"\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG does not match the version $VERSION in Cargo.toml; tag v$VERSION instead"
+            exit 1
+          fi
+
+      - name: Pack
+        run: |
+          TARBALL="$(node npm/pack.mjs \
+            linux-x64=binaries/linux-x64/c4gen \
+            linux-arm64=binaries/linux-arm64/c4gen \
+            darwin-x64=binaries/darwin-x64/c4gen \
+            darwin-arm64=binaries/darwin-arm64/c4gen \
+            win32-x64=binaries/win32-x64/c4gen.exe)"
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+
+      - name: Check the package
+        run: node npm/check.mjs "$TARBALL" --all-platforms
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-package
+          path: ${{ env.TARBALL }}
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # to create the release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-package
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          TARBALL="3lsl-c4gen-$VERSION.tgz"
+          URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG/$TARBALL"
+          NOTES="$(printf 'c4gen %s, built from %s, for Linux (x64, arm64), macOS (x64, arm64) and Windows (x64).\n\nTo use it from Node, add to package.json:\n\n```json\n"@3lsl/c4gen": "%s"\n```\n' \
+            "$VERSION" "$GITHUB_SHA" "$URL")"
+          gh release create "$TAG" "$TARBALL" --verify-tag --title "c4gen $VERSION" --notes "$NOTES"

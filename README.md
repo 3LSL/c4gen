@@ -11,7 +11,7 @@ Each source file of the module becomes a component. Each arrow, and the text on 
 // - `external:web-client` (inbound): Submits login and logout requests
 ```
 
-The rules for writing these blocks are in `Relationship Comment Instructions.md`, one directory above this package. Rust, Python, C and C++ source files are supported.
+The rules for writing these blocks are in `Relationship Comment Instructions.md`, one directory above this package. Rust, Python, C, C++ and TypeScript source files are supported.
 
 The same source files always give the same diagram, byte for byte.
 
@@ -57,6 +57,25 @@ $ cargo build --release      # binary at target/release/c4gen
 $ cargo test
 ```
 
+## Releases
+
+Each [release](https://github.com/3LSL/c4gen/releases) carries an npm package, `@3lsl/c4gen`, with the `c4gen` binary built for Linux (x64 and arm64, statically linked), macOS (x64 and arm64) and Windows (x64). It is not on the npm registry: a project depends on the tarball of a release.
+
+```json
+"@3lsl/c4gen": "https://github.com/3LSL/c4gen/releases/download/v0.1.0/3lsl-c4gen-0.1.0.tgz"
+```
+
+The package runs no install scripts and has no dependencies. It installs a `c4gen` command, and its module exports `binaryPath()`, the absolute path of the binary for the platform Node runs on:
+
+```js
+import { execFileSync } from 'node:child_process';
+import { binaryPath } from '@3lsl/c4gen';
+
+const diagram = execFileSync(binaryPath(), ['--root', '.', 'src'], { encoding: 'utf8' });
+```
+
+`RELEASING.md` says how to make a release, and how to try an unreleased build in another project.
+
 ## Command line
 
 ```text
@@ -78,9 +97,12 @@ Options:
       --no-default-excludes Do not skip the directories that are skipped by
                             default (target, node_modules, vendor, build, ...)
       --search-path <DIR>   Directory, relative to the root, searched first for
-                            C/C++ includes and Python imports; may be repeated
+                            C/C++ includes and Python and TypeScript imports;
+                            may be repeated
       --no-code-analysis    Build the diagram from Relationships blocks alone
       --title <TEXT>        Diagram title
+      --list-components     Print the path of every component of MODULE instead
+                            of drawing it
   -o, --output <FILE>       Write the diagram to FILE instead of standard output
       --strict              Exit with status 1 if any diagnostic is reported
   -q, --quiet               Do not print diagnostics
@@ -89,6 +111,8 @@ Options:
 ```
 
 The exit status is 0 on success, 1 with `--strict` when any diagnostic was reported, and 2 when no diagram could be generated. `c4gen --strict` is therefore usable as a check that every block in a module is complete and well formed.
+
+`--list-components` prints, instead of a diagram, the path of every component that the module's diagram draws with every level in full: one path per line, relative to the root, in sorted order. A C or C++ header and its implementation files are listed once, by the header. A module with no components gives an empty list and exit status 0, and only the errors that stop a diagram give exit status 2. So a program can find every directory that `c4gen` can draw without knowing its rules: each directory that holds a listed file, and each directory above it up to the module. `--depth`, `--outside`, `--title`, `--no-code-analysis` and `--strict` do not change the listing.
 
 ## Library
 
@@ -129,7 +153,7 @@ A caller that draws diagrams itself can ignore `to_mermaid()` and read `elements
 
 ### Components
 
-Every Rust, Python, C and C++ source file under the repository root is a component, except test code and build scripts. A C or C++ implementation file is merged into the header of the same name that sits beside it, that it includes, or that includes it. The pair is one component, identified by the header.
+Every Rust, Python, C, C++ and TypeScript source file under the repository root is a component, except test code and build scripts. A C or C++ implementation file is merged into the header of the same name that sits beside it, that it includes, or that includes it. The pair is one component, identified by the header.
 
 ### Arrows
 
@@ -159,14 +183,14 @@ When the module path is a single file, the diagram shows that file and its neigh
 
 ## Language support
 
-| | Rust | Python | C and C++ |
-|---|---|---|---|
-| Files | `.rs` | `.py` | `.c` `.h` `.cc` `.cpp` `.cxx` `.c++` `.hh` `.hpp` `.hxx` `.h++` `.ipp` `.tpp` `.inl` `.tcc` |
-| Block comment marker | `//` | `#` | `//`, or inside one `/* */` comment |
-| Dependencies detected from | `use` declarations, paths in code such as `storage::repo::save()`, and macro calls, resolved through each crate's module tree | `import` and `from … import` statements at any nesting level, and the dotted names the code goes on to use | `#include` directives |
-| Followed to the defining file through | `pub use` re-exports, including globs, and other crates of the same repository | package `__init__.py` files, other re-exporting imports, and `from … import *` | umbrella headers, meaning headers that contain only preprocessor directives |
-| Not a dependency | `mod` declarations; a `pub use` whose name the file does not use itself | an import whose name the file never uses, which is a re-export | includes made by an umbrella header |
-| Left out as test or build code | `#[cfg(test)]` and `#[test]` items; files declared by `#[cfg(test)] mod name;`; `tests.rs` and `test.rs`; `build.rs` beside a `Cargo.toml` | `conftest.py`; `setup.py` | files named `*_unittest` |
+| | Rust | Python | C and C++ | TypeScript |
+|---|---|---|---|---|
+| Files | `.rs` | `.py` | `.c` `.h` `.cc` `.cpp` `.cxx` `.c++` `.hh` `.hpp` `.hxx` `.h++` `.ipp` `.tpp` `.inl` `.tcc` | `.ts` `.tsx` `.mts` `.cts`; declaration files such as `.d.ts` are not read |
+| Block comment marker | `//` | `#` | `//`, or inside one `/* */` comment | `//`, or inside one `/* */` comment |
+| Dependencies detected from | `use` declarations, paths in code such as `storage::repo::save()`, and macro calls, resolved through each crate's module tree | `import` and `from … import` statements at any nesting level, and the dotted names the code goes on to use | `#include` directives | top-level `import` declarations, including `import type` and `import x = require()`; `import()` and `require()` calls with a literal path; and the dotted names used through a namespace import. Paths are resolved relative to the file, and otherwise through `paths` and `baseUrl` in the nearest `tsconfig.json` and the files it `extends`. A `.js` path names the `.ts` or `.tsx` file it is compiled from, and a directory names its `index.ts` |
+| Followed to the defining file through | `pub use` re-exports, including globs, and other crates of the same repository | package `__init__.py` files, other re-exporting imports, and `from … import *` | umbrella headers, meaning headers that contain only preprocessor directives | `export … from` and `export *`, as in `index.ts` files, and imported names that are exported again |
+| Not a dependency | `mod` declarations; a `pub use` whose name the file does not use itself | an import whose name the file never uses, which is a re-export | includes made by an umbrella header | an imported name that the file only exports again; an import that is never used still counts |
+| Left out as test or build code | `#[cfg(test)]` and `#[test]` items; files declared by `#[cfg(test)] mod name;`; `tests.rs` and `test.rs`; `build.rs` beside a `Cargo.toml` | `conftest.py`; `setup.py` | files named `*_unittest` | files named `*.test.*` or `*.spec.*`; files in a directory named `__mocks__`; files named `*.config.*` beside a `package.json`, such as `vite.config.ts` |
 
 In every language, files in a directory named `tests`, `test`, `benches` or `__tests__`, and files named `test_*`, `*_test` or `*_tests`, are test code and are left out.
 
@@ -174,7 +198,8 @@ The analysis is deliberately conservative. It reports a dependency only when a n
 
 - names that arrive through a glob import (`use prelude::*`, `from x import *`) and are then used without a path;
 - values whose type is never named, dependency injection, reflection and other run-time lookups;
-- bare `#include <name.h>` and bare `import name`, which look the same as system headers and installed packages unless `--search-path` says where to find them.
+- bare `#include <name.h>`, bare `import name` in Python, and TypeScript imports such as `from "utils/date"` that no `tsconfig.json` maps, which look the same as system headers and installed packages unless `--search-path` says where to find them;
+- TypeScript imports of another package of the same repository by its package name, such as `@acme/core` in a workspace, and `tsconfig.json` settings inherited from an installed package.
 
 ## Diagnostics
 
@@ -253,14 +278,16 @@ C4Component
     Rel(f_src_lib_rs, f_src_options_rs, "Reads the generation settings")
     Rel(f_src_lib_rs, f_src_repo_rs, "Locates the repository root and loads source files")
     Rel(f_src_lib_rs, d_src_analysis, "Detects dependencies between the scanned source files")
+    Rel(f_src_main_rs, f_src_diagram_rs, "Renders the diagram and reads diagnostics and components")
+    Rel(f_src_main_rs, f_src_error_rs, "Tells modules without components from failures")
     Rel(f_src_main_rs, f_src_lib_rs, "Generates the diagram for the requested module")
     Rel(f_src_main_rs, f_src_options_rs, "Builds generation settings from command-line arguments")
     Rel(f_src_repo_rs, f_src_error_rs, "Reports unreadable paths and missing repository roots")
     Rel(f_src_repo_rs, f_src_paths_rs, "Splits and joins repository paths")
     Rel(f_src_repo_rs, x_source_repository, "Reads the directory tree and source files")
     Rel(d_src_analysis, f_src_paths_rs, "Splits and joins repository paths")
-    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests")
-    Rel(x_command_line_user, f_src_main_rs, "Requests a diagram for a module path")
+    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests; Reads TypeScript compiler settings files; Reads TypeScript sources and their paths")
+    Rel(x_command_line_user, f_src_main_rs, "Requests the diagram or components of a module")
 ```
 
 ## Development

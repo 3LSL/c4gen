@@ -145,6 +145,24 @@ fn cpp_repository_in_full() {
 }
 
 #[test]
+fn typescript_project() {
+    check("ts_src", "ts_app", "src", options("ts_app"));
+}
+
+#[test]
+fn typescript_module_with_index_files() {
+    check("ts_session", "ts_app", "src/session", options("ts_app"));
+}
+
+#[test]
+fn typescript_repository_in_full_with_outside_files() {
+    let options = options("ts_app")
+        .depth(Depth::Unlimited)
+        .outside(Outside::Files);
+    check("ts_root_full", "ts_app", "", options);
+}
+
+#[test]
 fn python_module_without_outside_files() {
     check(
         "python_session_hide",
@@ -156,7 +174,12 @@ fn python_module_without_outside_files() {
 
 #[test]
 fn output_is_identical_between_runs() {
-    for (project, module) in [("python_app", "app"), ("rust_app", "src"), ("cpp_app", "")] {
+    for (project, module) in [
+        ("python_app", "app"),
+        ("rust_app", "src"),
+        ("cpp_app", ""),
+        ("ts_app", ""),
+    ] {
         let options = options(project).depth(Depth::Unlimited);
         let first = generate(fixture(project).join(module), &options).unwrap();
         let second = generate(fixture(project).join(module), &options).unwrap();
@@ -200,6 +223,22 @@ fn test_code_is_left_out() {
         .elements
         .iter()
         .all(|e| !e.path.contains("test_service")));
+
+    let diagram = generate(
+        fixture("ts_app"),
+        &options("ts_app").depth(Depth::Unlimited),
+    )
+    .unwrap();
+    let paths: Vec<&str> = diagram.elements.iter().map(|e| e.path.as_str()).collect();
+    assert!(paths.contains(&"src/storage/repo.ts"));
+    for left_out in [
+        "src/session/service.test.ts",
+        "src/storage/__mocks__/repo.ts",
+        "src/types/globals.d.ts",
+        "vite.config.ts",
+    ] {
+        assert!(!paths.contains(&left_out), "{left_out} is drawn");
+    }
 }
 
 #[test]
@@ -410,6 +449,88 @@ fn rust_names_are_followed_across_crates_globs_and_macros() {
 }
 
 #[test]
+fn typescript_names_are_followed_through_index_files_and_aliases() {
+    let root = project(
+        "ts_aliases",
+        &[
+            (
+                "tsconfig.json",
+                "{\n  // Settings may have comments.\n  \"compilerOptions\": {\n    \"baseUrl\": \"src\",\n    \"paths\": { \"~models\": [\"models/index.ts\"] },\n  },\n}\n",
+            ),
+            (
+                "src/models/order.ts",
+                "// Relationships:\n// None.\n\nexport class Order {}\n",
+            ),
+            (
+                "src/models/invoice.ts",
+                "// Relationships:\n// None.\n\nexport default class Invoice {}\n",
+            ),
+            (
+                "src/models/index.ts",
+                "// Relationships:\n// None.\n\nexport * from \"./order.js\";\nexport { default as Invoice } from \"./invoice\";\n",
+            ),
+            (
+                "src/report.ts",
+                "// Relationships:\n// - `src/models/invoice.ts`: Totals invoice amounts\n// - `src/models/order.ts`: Summarises placed orders\n\nimport { Invoice, Order } from \"~models\";\n\nexport function total(_order: Order, _invoice: Invoice): number {\n  return 0;\n}\n",
+            ),
+            (
+                "src/cli.mts",
+                "// Relationships:\n// - `src/report.ts`: Prints the report totals\n\nimport { Invoice } from \"~models\";\nimport { total } from \"report\";\n\nexport { Invoice };\nexport { Order } from \"~models\";\n\nconsole.log(total());\n",
+            ),
+        ],
+    );
+    let options = Options::new().root(&root).depth(Depth::Unlimited);
+    let diagram = generate(&root, &options).unwrap();
+    assert!(diagram.diagnostics.is_empty(), "{:#?}", diagram.diagnostics);
+    assert!(diagram.relations.iter().all(|r| !r.label.is_empty()));
+    assert_eq!(diagram.relations.len(), 3);
+
+    // The same code without its lines: both names are followed through the
+    // index file to the files that define them. What `cli.mts` only
+    // exports again is not a dependency.
+    let report = fs::read_to_string(root.join("src/report.ts")).unwrap();
+    let body = report.split_once("\n\n").unwrap().1;
+    fs::write(
+        root.join("src/report.ts"),
+        format!("// Relationships:\n// None.\n\n{body}"),
+    )
+    .unwrap();
+    let diagram = generate(&root, &options).unwrap();
+    let undocumented: Vec<&str> = diagram
+        .relations
+        .iter()
+        .filter(|r| r.label.is_empty())
+        .flat_map(|r| r.sources.iter().map(|s| s.target.as_str()))
+        .collect();
+    assert_eq!(
+        undocumented,
+        vec!["src/models/invoice.ts", "src/models/order.ts"]
+    );
+    assert_eq!(diagram.diagnostics.len(), 2);
+    assert!(diagram
+        .diagnostics
+        .iter()
+        .all(|d| d.kind == DiagnosticKind::Undocumented && d.file == "src/report.ts"));
+
+    // Without the compiler settings, `report` looks like a package unless a
+    // search path says where to find it.
+    fs::remove_file(root.join("tsconfig.json")).unwrap();
+    let kinds = |options: &Options| -> Vec<(String, DiagnosticKind)> {
+        generate(&root, options)
+            .unwrap()
+            .diagnostics
+            .iter()
+            .map(|d| (d.file.clone(), d.kind))
+            .collect()
+    };
+    assert_eq!(
+        kinds(&options),
+        vec![("src/cli.mts".to_string(), DiagnosticKind::Unconfirmed)]
+    );
+    assert_eq!(kinds(&options.clone().search_path("src")), vec![]);
+}
+
+#[test]
 fn fails_when_there_is_nothing_to_draw() {
     let python = fixture("python_app");
     let with_root = |module: PathBuf| generate(module, &Options::new().root(&python));
@@ -479,6 +600,54 @@ fn command_line_prints_the_diagram_and_reports_diagnostics() {
     assert!(String::from_utf8(help.stdout)
         .unwrap()
         .starts_with("Generate a C4 component diagram"));
+}
+
+#[test]
+fn command_line_lists_the_components() {
+    let list = |project: &str, module: &str| {
+        let root = fixture(project);
+        Command::new(env!("CARGO_BIN_EXE_c4gen"))
+            .arg("--list-components")
+            .arg("--root")
+            .arg(&root)
+            .arg(root.join(module))
+            .output()
+            .unwrap()
+    };
+
+    for (project, case) in [("cpp_app", "cpp_root"), ("ts_app", "ts_root")] {
+        let output = list(project, "");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stderr.is_empty());
+        let listed = String::from_utf8(output.stdout).unwrap();
+        compare(&format!("{case}.components.txt"), &listed);
+
+        // Every directory from a listed file up to the module can be drawn.
+        for path in listed.lines() {
+            let mut directory = Path::new(path).parent();
+            while let Some(dir) = directory {
+                let drawn = generate(fixture(project).join(dir), &options(project));
+                assert!(
+                    drawn.is_ok(),
+                    "{project}/{}: {:?}",
+                    dir.display(),
+                    drawn.err()
+                );
+                directory = dir.parent();
+            }
+        }
+    }
+
+    // A module with nothing to draw has an empty list, which is not a failure.
+    for module in ["docs", "app/session/test_service.py"] {
+        let empty = list("python_app", module);
+        assert_eq!(empty.status.code(), Some(0), "{module}");
+        assert!(empty.stdout.is_empty(), "{module}");
+    }
+
+    let missing = list("python_app", "no/such/dir");
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(missing.stdout.is_empty());
 }
 
 /// Splits the README around its `index`-th Mermaid block: the text up to

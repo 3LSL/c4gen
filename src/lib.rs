@@ -22,7 +22,7 @@
 //!
 //! The file that holds the block is where each arrow starts, the target in
 //! backticks is where it ends, and the label is printed on the arrow word for
-//! word. Rust, Python, C and C++ files are supported.
+//! word. Rust, Python, C, C++ and TypeScript files are supported.
 //!
 //! # Example
 //!

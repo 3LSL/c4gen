@@ -1,0 +1,43 @@
+C4Component
+    title Component diagram for the repository root
+
+    Boundary(b_root, "(repository root)", "module") {
+        Boundary(b_src, "src", "module") {
+            Component(f_src_devtools_ts, "devtools.ts", "TypeScript")
+            Component(f_src_main_ts, "main.ts", "TypeScript")
+            Boundary(b_src_session, "session", "module") {
+                Component(f_src_session_index_ts, "index.ts", "TypeScript")
+                Component(f_src_session_service_ts, "service.ts", "TypeScript")
+                Component(f_src_session_tokens_ts, "tokens.ts", "TypeScript")
+                Component(f_src_session_types_ts, "types.ts", "TypeScript")
+            }
+            Boundary(b_src_storage, "storage", "module") {
+                Component(f_src_storage_cache_ts, "cache.ts", "TypeScript")
+                Component(f_src_storage_index_ts, "index.ts", "TypeScript")
+                Component(f_src_storage_repo_ts, "repo.ts", "TypeScript")
+            }
+            Boundary(b_src_ui, "ui", "module") {
+                Component(f_src_ui_App_tsx, "App.tsx", "TypeScript")
+                Component(f_src_ui_Button_tsx, "Button.tsx", "TypeScript")
+            }
+        }
+    }
+
+    System_Ext(x_operator, "operator")
+    System_Ext(x_orders_db, "orders-db")
+    System_Ext(x_web_client, "web-client")
+
+    Rel(f_src_main_ts, f_src_devtools_ts, "Loads developer tools during development")
+    Rel(f_src_main_ts, f_src_session_service_ts, "Starts the session service")
+    Rel(f_src_main_ts, f_src_ui_App_tsx, "Renders the application shell")
+    Rel(f_src_session_service_ts, f_src_session_tokens_ts, "Signs and verifies session tokens")
+    Rel(f_src_session_service_ts, f_src_session_types_ts, "Describes returned session records")
+    Rel(f_src_session_service_ts, f_src_storage_cache_ts, "")
+    Rel(f_src_session_service_ts, f_src_storage_repo_ts, "Stores and retrieves session records")
+    Rel(f_src_session_tokens_ts, f_src_storage_repo_ts, "Loads signing keys")
+    Rel(f_src_storage_repo_ts, f_src_session_types_ts, "Describes stored session records")
+    Rel(f_src_storage_repo_ts, x_orders_db, "Reads and writes session rows")
+    Rel(f_src_ui_App_tsx, f_src_session_service_ts, "Logs users in from the sign-in form")
+    Rel(f_src_ui_App_tsx, f_src_ui_Button_tsx, "Draws the sign-in button")
+    Rel(x_operator, f_src_main_ts, "Starts the application from a terminal")
+    Rel(x_web_client, f_src_session_service_ts, "Submits login and logout requests")

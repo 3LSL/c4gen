@@ -88,7 +88,8 @@ pub struct Options {
     /// skipped. Defaults to [`DEFAULT_EXCLUDES`].
     pub exclude: Vec<String>,
     /// Directories, relative to the repository root, that are searched first
-    /// when a C or C++ `#include` or an absolute Python import is resolved.
+    /// when a C or C++ `#include`, an absolute Python import or a
+    /// non-relative TypeScript import is resolved.
     pub search_paths: Vec<String>,
     /// Whether dependencies detected in the code are used. When `true`, a
     /// detected dependency without a line is drawn as an unlabelled arrow and
