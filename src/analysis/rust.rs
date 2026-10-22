@@ -1,5 +1,5 @@
 // Relationships:
-// - `src/analysis/mod.rs`: Records the dependencies detected for each file
+// - `src/analysis/dependencies.rs`: Records the dependencies detected for each file
 // - `src/paths.rs`: Splits and joins repository paths
 // - `src/repo.rs`: Reads Rust sources and crate manifests
 

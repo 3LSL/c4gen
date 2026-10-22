@@ -2,7 +2,7 @@
 // - `src/analysis/mod.rs`: Detects dependencies between the scanned source files
 // - `src/diagram.rs`: Returns the generated diagram to the caller
 // - `src/error.rs`: Reports why a diagram could not be generated
-// - `src/graph.rs`: Assembles the diagram from blocks and dependencies
+// - `src/graph/mod.rs`: Assembles the diagram from blocks and dependencies
 // - `src/options.rs`: Reads the generation settings
 // - `src/repo.rs`: Locates the repository root and loads source files
 
@@ -15,9 +15,9 @@
 //!
 //! ```text
 //! // Relationships:
+//! // - `external:web-client` (inbound): Submits login and logout requests
 //! // - `src/crypto/token.rs`: Signs and verifies session tokens
 //! // - `src/storage/repo.rs`: Stores and retrieves session records
-//! // - `external:web-client` (inbound): Submits login and logout requests
 //! ```
 //!
 //! The file that holds the block is where each arrow starts, the target in
@@ -63,7 +63,6 @@
 #![warn(missing_docs)]
 
 mod analysis;
-mod block;
 mod diagnostics;
 mod diagram;
 mod error;
