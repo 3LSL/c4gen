@@ -1,6 +1,6 @@
 // Relationships:
 // - `external:source-repository`: Reads the directory tree and source files
-// - `src/error.rs`: Reports unreadable paths and missing repository roots
+// - `src/error.rs`: Reports unreadable paths and missing or wrong roots
 // - `src/paths.rs`: Splits and joins repository paths
 
 //! The scanned repository: every source file in a supported language, with

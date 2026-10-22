@@ -1,5 +1,6 @@
 // Relationships:
 // - `external:command-line-user` (inbound): Requests a diagram for a module path
+// - `src/diagram.rs`: Renders the diagram and reads its diagnostics
 // - `src/lib.rs`: Generates the diagram for the requested module
 // - `src/options.rs`: Builds generation settings from command-line arguments
 
@@ -9,7 +10,7 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use c4gen::{generate, Depth, Options, Outside};
+use c4gen::{generate, Depth, Diagram, Options, Outside};
 
 const USAGE: &str = "\
 Generate a C4 component diagram of a software module, in Mermaid syntax.
@@ -84,7 +85,8 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         }
     };
 
-    let diagram = generate(&cli.module, &cli.options).map_err(|error| error.to_string())?;
+    let diagram: Diagram =
+        generate(&cli.module, &cli.options).map_err(|error| error.to_string())?;
     let text = diagram.to_mermaid();
     match &cli.output {
         Some(path) => {

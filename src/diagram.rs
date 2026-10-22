@@ -1,5 +1,5 @@
 // Relationships:
-// - `src/diagnostics.rs`: Carries diagnostics alongside the generated diagram
+// - `src/diagnostics.rs`: Carries diagnostics alongside the diagram and checks severity
 
 //! The generated diagram and its rendering as Mermaid text.
 

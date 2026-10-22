@@ -6,9 +6,9 @@ Each source file of the module becomes a component. Each arrow, and the text on 
 
 ```rust
 // Relationships:
+// - `external:web-client` (inbound): Submits login and logout requests
 // - `src/crypto/token.rs`: Signs and verifies session tokens
 // - `src/storage/repo.rs`: Stores and retrieves session records
-// - `external:web-client` (inbound): Submits login and logout requests
 ```
 
 The rules for writing these blocks are in `Relationship Comment Instructions.md`, one directory above this package. Rust, Python, C, C++ and TypeScript source files are supported.
@@ -224,11 +224,10 @@ C4Component
 
     Boundary(b_src, "src", "module") {
         Component(d_src_analysis, "analysis/", "Rust")
-        Component(f_src_block_rs, "block.rs", "Rust")
         Component(f_src_diagnostics_rs, "diagnostics.rs", "Rust")
         Component(f_src_diagram_rs, "diagram.rs", "Rust")
         Component(f_src_error_rs, "error.rs", "Rust")
-        Component(f_src_graph_rs, "graph.rs", "Rust")
+        Component(d_src_graph, "graph/", "Rust")
         Component(f_src_lib_rs, "lib.rs", "Rust")
         Component(f_src_main_rs, "main.rs", "Rust")
         Component(f_src_options_rs, "options.rs", "Rust")
@@ -239,29 +238,28 @@ C4Component
     System_Ext(x_command_line_user, "command-line-user")
     System_Ext(x_source_repository, "source-repository")
 
-    Rel(f_src_block_rs, f_src_diagnostics_rs, "Classifies problems found in a relationship block")
-    Rel(f_src_diagram_rs, f_src_diagnostics_rs, "Carries diagnostics alongside the generated diagram")
-    Rel(f_src_graph_rs, f_src_block_rs, "Parses the relationship block of each file")
-    Rel(f_src_graph_rs, f_src_diagnostics_rs, "Records problems found in blocks and dependencies")
-    Rel(f_src_graph_rs, f_src_diagram_rs, "Builds the elements and relations of the diagram")
-    Rel(f_src_graph_rs, f_src_error_rs, "Reports modules that contain no components")
-    Rel(f_src_graph_rs, f_src_options_rs, "Reads depth, outside and analysis settings")
-    Rel(f_src_graph_rs, f_src_paths_rs, "Splits and joins repository paths")
-    Rel(f_src_graph_rs, f_src_repo_rs, "Reads scanned files, roles and languages")
-    Rel(f_src_graph_rs, d_src_analysis, "Reads detected dependencies and header pairs")
+    Rel(f_src_diagram_rs, f_src_diagnostics_rs, "Carries diagnostics alongside the diagram and checks severity")
     Rel(f_src_lib_rs, f_src_diagram_rs, "Returns the generated diagram to the caller")
     Rel(f_src_lib_rs, f_src_error_rs, "Reports why a diagram could not be generated")
-    Rel(f_src_lib_rs, f_src_graph_rs, "Assembles the diagram from blocks and dependencies")
     Rel(f_src_lib_rs, f_src_options_rs, "Reads the generation settings")
     Rel(f_src_lib_rs, f_src_repo_rs, "Locates the repository root and loads source files")
     Rel(f_src_lib_rs, d_src_analysis, "Detects dependencies between the scanned source files")
+    Rel(f_src_lib_rs, d_src_graph, "Assembles the diagram from blocks and dependencies")
+    Rel(f_src_main_rs, f_src_diagram_rs, "Renders the diagram and reads its diagnostics")
     Rel(f_src_main_rs, f_src_lib_rs, "Generates the diagram for the requested module")
     Rel(f_src_main_rs, f_src_options_rs, "Builds generation settings from command-line arguments")
-    Rel(f_src_repo_rs, f_src_error_rs, "Reports unreadable paths and missing repository roots")
+    Rel(f_src_repo_rs, f_src_error_rs, "Reports unreadable paths and missing or wrong roots")
     Rel(f_src_repo_rs, f_src_paths_rs, "Splits and joins repository paths")
     Rel(f_src_repo_rs, x_source_repository, "Reads the directory tree and source files")
     Rel(d_src_analysis, f_src_paths_rs, "Splits and joins repository paths")
-    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests; Reads TypeScript compiler settings files; Reads TypeScript sources and their paths")
+    Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Identifies scanned files by their index; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests; Reads TypeScript compiler settings files; Reads TypeScript sources and their paths")
+    Rel(d_src_graph, f_src_diagnostics_rs, "Classifies problems found in a relationship block; Sorts the diagnostics reported with the diagram; Records problems found in blocks and dependencies")
+    Rel(d_src_graph, f_src_diagram_rs, "Builds the elements and relations of the diagram; Returns the generated diagram to the caller; Records the source of each relationship")
+    Rel(d_src_graph, f_src_error_rs, "Reports modules that contain no components; Reports why a diagram could not be generated")
+    Rel(d_src_graph, f_src_options_rs, "Reads depth, outside and title settings; Passes the generation settings to the stages; Reads analysis settings")
+    Rel(d_src_graph, f_src_paths_rs, "Splits and joins repository paths")
+    Rel(d_src_graph, f_src_repo_rs, "Reads scanned files, roles and languages; Reads scanned files; Passes the scanned repository to the grouping stage; Reads scanned files and languages, looks up targets")
+    Rel(d_src_graph, d_src_analysis, "Reads header pairs; Passes the detected dependencies to the stages; Reads detected dependencies")
     Rel(x_command_line_user, f_src_main_rs, "Requests a diagram for a module path")
 ```
 
