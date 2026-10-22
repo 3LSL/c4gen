@@ -57,6 +57,25 @@ $ cargo build --release      # binary at target/release/c4gen
 $ cargo test
 ```
 
+## Releases
+
+Each [release](https://github.com/3LSL/c4gen/releases) carries an npm package, `@3lsl/c4gen`, with the `c4gen` binary built for Linux (x64 and arm64, statically linked), macOS (x64 and arm64) and Windows (x64). It is not on the npm registry: a project depends on the tarball of a release.
+
+```json
+"@3lsl/c4gen": "https://github.com/3LSL/c4gen/releases/download/v0.1.0/3lsl-c4gen-0.1.0.tgz"
+```
+
+The package runs no install scripts and has no dependencies. It installs a `c4gen` command, and its module exports `binaryPath()`, the absolute path of the binary for the platform Node runs on:
+
+```js
+import { execFileSync } from 'node:child_process';
+import { binaryPath } from '@3lsl/c4gen';
+
+const diagram = execFileSync(binaryPath(), ['--root', '.', 'src'], { encoding: 'utf8' });
+```
+
+`RELEASING.md` says how to make a release, and how to try an unreleased build in another project.
+
 ## Command line
 
 ```text
@@ -82,6 +101,8 @@ Options:
                             may be repeated
       --no-code-analysis    Build the diagram from Relationships blocks alone
       --title <TEXT>        Diagram title
+      --list-components     Print the path of every component of MODULE instead
+                            of drawing it
   -o, --output <FILE>       Write the diagram to FILE instead of standard output
       --strict              Exit with status 1 if any diagnostic is reported
   -q, --quiet               Do not print diagnostics
@@ -90,6 +111,8 @@ Options:
 ```
 
 The exit status is 0 on success, 1 with `--strict` when any diagnostic was reported, and 2 when no diagram could be generated. `c4gen --strict` is therefore usable as a check that every block in a module is complete and well formed.
+
+`--list-components` prints, instead of a diagram, the path of every component that the module's diagram draws with every level in full: one path per line, relative to the root, in sorted order. A C or C++ header and its implementation files are listed once, by the header. A module with no components gives an empty list and exit status 0, and only the errors that stop a diagram give exit status 2. So a program can find every directory that `c4gen` can draw without knowing its rules: each directory that holds a listed file, and each directory above it up to the module. `--depth`, `--outside`, `--title`, `--no-code-analysis` and `--strict` do not change the listing.
 
 ## Library
 
@@ -245,7 +268,8 @@ C4Component
     Rel(f_src_lib_rs, f_src_repo_rs, "Locates the repository root and loads source files")
     Rel(f_src_lib_rs, d_src_analysis, "Detects dependencies between the scanned source files")
     Rel(f_src_lib_rs, d_src_graph, "Assembles the diagram from blocks and dependencies")
-    Rel(f_src_main_rs, f_src_diagram_rs, "Renders the diagram and reads its diagnostics")
+    Rel(f_src_main_rs, f_src_diagram_rs, "Renders the diagram and reads diagnostics and components")
+    Rel(f_src_main_rs, f_src_error_rs, "Tells modules without components from failures")
     Rel(f_src_main_rs, f_src_lib_rs, "Generates the diagram for the requested module")
     Rel(f_src_main_rs, f_src_options_rs, "Builds generation settings from command-line arguments")
     Rel(f_src_repo_rs, f_src_error_rs, "Reports unreadable paths and missing or wrong roots")
@@ -260,7 +284,7 @@ C4Component
     Rel(d_src_graph, f_src_paths_rs, "Splits and joins repository paths")
     Rel(d_src_graph, f_src_repo_rs, "Reads scanned files, roles and languages; Reads scanned files; Passes the scanned repository to the grouping stage; Reads scanned files and languages, looks up targets")
     Rel(d_src_graph, d_src_analysis, "Reads header pairs; Passes the detected dependencies to the stages; Reads detected dependencies")
-    Rel(x_command_line_user, f_src_main_rs, "Requests a diagram for a module path")
+    Rel(x_command_line_user, f_src_main_rs, "Requests the diagram or components of a module")
 ```
 
 ## Development
