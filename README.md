@@ -82,6 +82,8 @@ Options:
                             may be repeated
       --no-code-analysis    Build the diagram from Relationships blocks alone
       --title <TEXT>        Diagram title
+      --list-components     Print the path of every component of MODULE instead
+                            of drawing it
   -o, --output <FILE>       Write the diagram to FILE instead of standard output
       --strict              Exit with status 1 if any diagnostic is reported
   -q, --quiet               Do not print diagnostics
@@ -90,6 +92,8 @@ Options:
 ```
 
 The exit status is 0 on success, 1 with `--strict` when any diagnostic was reported, and 2 when no diagram could be generated. `c4gen --strict` is therefore usable as a check that every block in a module is complete and well formed.
+
+`--list-components` prints, instead of a diagram, the path of every component that the module's diagram draws with every level in full: one path per line, relative to the root, in sorted order. A C or C++ header and its implementation files are listed once, by the header. A module with no components gives an empty list and exit status 0, and only the errors that stop a diagram give exit status 2. So a program can find every directory that `c4gen` can draw without knowing its rules: each directory that holds a listed file, and each directory above it up to the module. `--depth`, `--outside`, `--title`, `--no-code-analysis` and `--strict` do not change the listing.
 
 ## Library
 
@@ -255,6 +259,8 @@ C4Component
     Rel(f_src_lib_rs, f_src_options_rs, "Reads the generation settings")
     Rel(f_src_lib_rs, f_src_repo_rs, "Locates the repository root and loads source files")
     Rel(f_src_lib_rs, d_src_analysis, "Detects dependencies between the scanned source files")
+    Rel(f_src_main_rs, f_src_diagram_rs, "Renders the diagram and reads diagnostics and components")
+    Rel(f_src_main_rs, f_src_error_rs, "Tells modules without components from failures")
     Rel(f_src_main_rs, f_src_lib_rs, "Generates the diagram for the requested module")
     Rel(f_src_main_rs, f_src_options_rs, "Builds generation settings from command-line arguments")
     Rel(f_src_repo_rs, f_src_error_rs, "Reports unreadable paths and missing repository roots")
@@ -262,7 +268,7 @@ C4Component
     Rel(f_src_repo_rs, x_source_repository, "Reads the directory tree and source files")
     Rel(d_src_analysis, f_src_paths_rs, "Splits and joins repository paths")
     Rel(d_src_analysis, f_src_repo_rs, "Reads C-family sources and their paths; Reads scanned files and marks test files; Reads Python sources and their paths; Reads Rust sources and crate manifests; Reads TypeScript compiler settings files; Reads TypeScript sources and their paths")
-    Rel(x_command_line_user, f_src_main_rs, "Requests a diagram for a module path")
+    Rel(x_command_line_user, f_src_main_rs, "Requests the diagram or components of a module")
 ```
 
 ## Development

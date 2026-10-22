@@ -602,6 +602,54 @@ fn command_line_prints_the_diagram_and_reports_diagnostics() {
         .starts_with("Generate a C4 component diagram"));
 }
 
+#[test]
+fn command_line_lists_the_components() {
+    let list = |project: &str, module: &str| {
+        let root = fixture(project);
+        Command::new(env!("CARGO_BIN_EXE_c4gen"))
+            .arg("--list-components")
+            .arg("--root")
+            .arg(&root)
+            .arg(root.join(module))
+            .output()
+            .unwrap()
+    };
+
+    for (project, case) in [("cpp_app", "cpp_root"), ("ts_app", "ts_root")] {
+        let output = list(project, "");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stderr.is_empty());
+        let listed = String::from_utf8(output.stdout).unwrap();
+        compare(&format!("{case}.components.txt"), &listed);
+
+        // Every directory from a listed file up to the module can be drawn.
+        for path in listed.lines() {
+            let mut directory = Path::new(path).parent();
+            while let Some(dir) = directory {
+                let drawn = generate(fixture(project).join(dir), &options(project));
+                assert!(
+                    drawn.is_ok(),
+                    "{project}/{}: {:?}",
+                    dir.display(),
+                    drawn.err()
+                );
+                directory = dir.parent();
+            }
+        }
+    }
+
+    // A module with nothing to draw has an empty list, which is not a failure.
+    for module in ["docs", "app/session/test_service.py"] {
+        let empty = list("python_app", module);
+        assert_eq!(empty.status.code(), Some(0), "{module}");
+        assert!(empty.stdout.is_empty(), "{module}");
+    }
+
+    let missing = list("python_app", "no/such/dir");
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(missing.stdout.is_empty());
+}
+
 /// Splits the README around its `index`-th Mermaid block: the text up to
 /// and including the opening fence, the diagram, and the rest.
 fn readme_block(readme: &str, index: usize) -> (&str, &str, &str) {
