@@ -23,6 +23,7 @@ A project that uses the release adds it to its `package.json`:
 If the workflow fails, fix the cause, then delete the tag (and the release, if one was made) and push the tag again:
 
 ```console
+$ gh release delete v0.1.0 --yes          # only if the release was made
 $ git push --delete origin v0.1.0
 $ git tag -f v0.1.0
 $ git push origin v0.1.0
